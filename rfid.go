@@ -1,13 +1,16 @@
 package rfid
 
 import (
-	"os"
+	"github.com/tarm/serial"
 )
 
-func writeCOMstring(com string, data string) error {
-	f, err := os.Open(com)
+var serialDevice *serial.Port
+
+func init() {
+	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 115200}
+	var err error
+	serialDevice, err = serial.OpenPort(c)
 	if err != nil {
-		return err
+		return
 	}
-	f.WriteString(string)
 }
