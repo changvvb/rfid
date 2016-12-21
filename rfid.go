@@ -1,16 +1,19 @@
-package rfid
+package main
 
 import (
-	"github.com/tarm/serial"
+	"github.com/changvvb/rfid/rfid"
+	"github.com/changvvb/rfid/server"
+	"time"
 )
 
-var serialDevice *serial.Port
-
-func init() {
-	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 115200}
-	var err error
-	serialDevice, err = serial.OpenPort(c)
-	if err != nil {
-		return
+func main() {
+	s := server.New()
+	for {
+		rfid.Auth14443()
+		rfid.Read14443(1, 1)
+		rfid.Auth14443()
+		rfid.Write14443(1, 1, [16]byte{5, 6, 3, 5, 3, 2, 5, 6, 9})
+		time.Sleep(time.Second / 5)
 	}
+	s.Run()
 }
