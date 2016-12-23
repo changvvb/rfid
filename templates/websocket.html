@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <script>
+            var ws = new WebSocket("ws://192.168.1.216:8080/ws","protocolOne");
+            ws.onopen = function(event) {
+                ws.send("haha");
+            }
+            
+            ws.onmessage = function(event) {
+                console.log(event.data);
+            }
+            
+            
+            ws.onclose = function(event) {
+                console.log("closed");
+            }
+        </script>
+    </head>
+    <body>
+        <form method="POST" action="/write">
+            <input type="text" name="name"></input>
+            <input type="text" name="age"></input>
+            <input type="text" name="sex"></input>
+            <input type="text" name="tel"></input>
+            <input type="submit" ></input>
+        </form>
+    </body>
+</html>	
+

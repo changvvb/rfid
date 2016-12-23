@@ -4,17 +4,21 @@
 package rfid
 
 import (
-	"log"
-	"time"
-
+	"fmt"
 	"github.com/tarm/serial"
+	"io/ioutil"
+	"log"
+	"strings"
+	"time"
 )
 
 //串口设备
 var SerialDevice *serial.Port
 
+var SearchCardCallBack func([]byte)
+
 //package初始化
-func init() {
+func init0() {
 	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 115200, ReadTimeout: time.Nanosecond * 1}
 	var err error
 	SerialDevice, err = serial.OpenPort(c)
@@ -23,11 +27,46 @@ func init() {
 		log.Println(err)
 		return
 	}
-	// serialHandle()
 }
 
-//指令处理
-func cmdHandle(cmd []byte) {
+func BoolReady() bool {
+	if SerialDevice != nil {
+		return true
+	}
+	return false
+}
+
+//return serial devices
+//true: only ttyUSB*, false: tty*
+func ListDevice(flag bool) []string {
+	files, err := ioutil.ReadDir("/dev/")
+	if err != nil {
+		return nil
+	} else {
+		var s []string
+		for _, v := range files {
+			if flag {
+				if strings.Contains(v.Name(), "ttyUSB") {
+					s = append(s, v.Name())
+				}
+			} else {
+				if strings.Contains(v.Name(), "tty") {
+					s = append(s, v.Name())
+				}
+			}
+		}
+		return s
+	}
+}
+
+func Connect(port string) {
+	c := &serial.Config{Name: port, Baud: 115200, ReadTimeout: time.Nanosecond * 1}
+	var err error
+	SerialDevice, err = serial.OpenPort(c)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func read() []byte {
@@ -62,16 +101,52 @@ func wait() []byte {
 }
 
 //查找14443卡片
-func SearchCard14443() {
+func SearchCard14443() []byte {
 	cmd := []byte{0xFF, 0xFE, 0x03, 0x00, 0x20, 0x20}
-	time.Sleep(time.Second)
 	SerialDevice.Write(cmd)
+	time.Sleep(time.Second / 5)
 	buf := wait()
 	log.Println("card", buf)
+
+	if len(buf) < 7 {
+		return nil
+	}
+	log.Println("length:----------------------------->", len(buf))
+
+	if buf[3] == 0x04 {
+		return buf[6 : len(buf)-1]
+	}
+	return nil
 }
 
-func Auth14443() {
-	cmd := []byte{0xFF, 0x0FE, 0x03, 0x08, 0x23, 0x01, 0x60, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x86}
+var BoolAutoSearch bool
+
+func AutoSearch14443() {
+	if BoolAutoSearch == true {
+		return
+	}
+	BoolAutoSearch = true
+	go func() {
+		for {
+			if BoolAutoSearch {
+				if buf := SearchCard14443(); SearchCardCallBack != nil {
+					SearchCardCallBack(buf)
+				}
+				time.Sleep(time.Second / 20)
+			} else {
+				return
+			}
+		}
+	}()
+}
+
+func StopAutoSearch14443() {
+	BoolAutoSearch = false
+}
+
+func Auth14443(section byte) {
+	cmd := []byte{0xFF, 0x0FE, 0x03, 0x08, 0x23, section, 0x60, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00}
+	sum(cmd)
 	SerialDevice.Write(cmd)
 	time.Sleep(time.Second / 3)
 	buf := wait()
@@ -79,18 +154,43 @@ func Auth14443() {
 }
 
 //read data from section block
-func Read14443(section byte, block byte) {
+func Read14443(section byte, block byte) ([]byte, error) {
 	cmd := []byte{0xFF, 0xFE, 0x03, 0x02, 0x21, section, block, 0x00}
 	sum(cmd)
 	log.Printf("cmd:%X\n", cmd)
 	SerialDevice.Write(cmd)
-	time.Sleep(time.Second / 5)
+	time.Sleep(time.Second / 50)
 	buf := wait()
 	log.Printf("Receive read data from serial port: %X\n", buf)
+
+	//校验不通过
+	if !check(buf) {
+		return nil, fmt.Errorf("Check sum failed")
+	}
+
+	if buf[3] == 0 {
+		return nil, fmt.Errorf("Error! NO CARD!")
+	}
+
+	return buf[12 : 12+16], nil
+}
+
+func ReadString14443(section byte, block byte) string {
+	if b, err := Read14443(section, block); err == nil {
+		for i, v := range b {
+			if v == 0 {
+				b = b[0:i]
+				break
+			}
+		}
+		return string(b)
+	} else {
+		return ""
+	}
 }
 
 //write data to section block
-func Write14443(section byte, block byte, data [16]byte) {
+func Write14443(section byte, block byte, data []byte) {
 	cmd := make([]byte, 24)
 	b := []byte{0xFF, 0xFE, 0x03, 0x12, 0x22, section, block}
 
@@ -99,12 +199,16 @@ func Write14443(section byte, block byte, data [16]byte) {
 	}
 
 	for i := 0; i < 16; i++ {
+		if i >= len(data) {
+			cmd[len(b)+i] = 0
+			continue
+		}
 		cmd[len(b)+i] = data[i]
 	}
 	sum(cmd)
 	log.Printf("cmd:%X\n", cmd)
 	SerialDevice.Write(cmd)
-	time.Sleep(time.Second / 5)
+	time.Sleep(time.Second / 50)
 	buf := wait()
 	log.Printf("Receive write data from serial port: %X", buf)
 }
@@ -116,4 +220,21 @@ func sum(cmd []byte) {
 		sum += v
 	}
 	cmd[cap(cmd)-1] = sum
+}
+
+//check data from serial port
+func check(cmd []byte) bool {
+	var sum byte = 0
+	if len(cmd) == 0 {
+		return false
+	}
+	for _, v := range cmd[0 : len(cmd)-1] {
+		sum += v
+	}
+
+	if cmd[len(cmd)-1] == sum {
+		return true
+	} else {
+		return false
+	}
 }
