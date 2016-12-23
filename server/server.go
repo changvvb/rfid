@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"iotWeb/model"
 	"log"
 	"strconv"
 	"time"
@@ -12,11 +11,6 @@ import (
 	"github.com/kataras/iris"
 	//	_ "./rfid"
 )
-
-type User struct {
-	model.User
-	UserName string
-}
 
 type Card struct {
 	ID   string
