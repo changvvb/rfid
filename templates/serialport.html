@@ -1,0 +1,59 @@
+<html>
+    <head>
+        <script src="/static/jquery.min.js"></script>
+        <script>
+            $.get("http://192.168.1.216:8080/listdevices?flag=1", function(data, status){
+                $.each(data,function(key, value) 
+                {
+                    $("#serial").append('<option value=' + key + '>' + value + '</option>');
+                });
+                 //$("#serial").append('<option><button >get more</button></option>')
+                // alert("Data: " + data + "\nStatus: " + status);
+            });
+            
+            
+        </script>
+    </head>
+    <body>
+        <select id="serial" onclick="sltchange(this)">
+            
+<!--            <option>sdfasdf</option>-->
+<!--            <option>dsfasdf</option>-->
+        </select>
+        <button onclick="btnclick()">get more</button>
+        <button onclick="btn2click()">connect</button>
+        <script>
+            function myFunction() {
+                alert("DSfasdfasd")
+                document.getElementById("demo").innerHTML = "Hello World";
+            }
+            
+//            $("#serial").change(function(){
+//                alert($(this).children('option:selected').val());
+//            })
+//            
+//            $("#serial").onchange = function(){
+//                alert("dsflajsdlfjasl;dk")
+//            }
+            
+            function btn2click(slf) {
+                var port = $("#serial").children('option:selected').text();
+                $.get("http://192.168.1.216:8080/connect?port="+port)   
+            }
+                
+            
+            function btnclick() {
+                $.get("http://192.168.1.216:8080/listdevices", function(data, status){
+                    $("#serial").html("");
+                    $.each(data,function(key, value) 
+                    {
+                        $("#serial").append('<option value=' + key + '>' + value + '</option>');
+                    });
+                    // alert("Data: " + data + "\nStatus: " + status);
+                });
+            }
+            
+        </script>
+    </body>
+</html>	
+

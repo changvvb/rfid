@@ -6,10 +6,8 @@ import (
 	"strconv"
 	"time"
 	//"time"
-
 	"github.com/changvvb/rfid/rfid"
 	"github.com/kataras/iris"
-	//	_ "./rfid"
 )
 
 type Card struct {
@@ -29,14 +27,13 @@ var cardID string
 func init() {
 	ch = make(chan []byte, 1)
 	wsMap = make(map[string]iris.WebsocketConnection)
-	rfid.Connect("/dev/ttyUSB0")
+	// rfid.Connect("/dev/ttyUSB0")
 	rfid.SearchCardCallBack = func(b []byte) {
 		log.Println("search OK")
 		if len(b) != 4 {
 			cardID = "00000000"
 			return
 		}
-		log.Println("length:---------->", len(b))
 		s := fmt.Sprintf("%X", b)
 		if cardID != s {
 			cardID = s
@@ -46,7 +43,7 @@ func init() {
 		}
 	}
 
-	rfid.AutoSearch14443()
+	// rfid.AutoSearch14443()
 }
 
 func (c *Card) WriteToCard() {
@@ -72,8 +69,16 @@ func (s *Server) Run() {
 	server := s.server
 	server.Config.IsDevelopment = true
 
-	rfid.Connect("/dev/ttyUSB0")
+	server.StaticServe("./templates", "/static")
+
+	// rfid.Connect("/dev/ttyUSB0")
 	server.UseFunc(func(ctx *iris.Context) {
+
+		if ctx.PathString() == "/listdevices" || ctx.PathString() == "/connect" {
+			ctx.Next()
+			return
+		}
+
 		if rfid.BoolReady() {
 			ctx.Next()
 		} else {
@@ -81,9 +86,25 @@ func (s *Server) Run() {
 		}
 	})
 
-	server.Get("/read", func(ctx *iris.Context) {
+	server.Get("/readall", func(ctx *iris.Context) {
 		rfid.StopAutoSearch14443()
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second / 5)
+		defer rfid.AutoSearch14443()
+
+		var i, j byte
+		for i = 0; i < 20; i++ {
+			rfid.Auth14443(i)
+			for j = 0; j < 3; j++ {
+				b, _ := rfid.Read14443(i, j)
+				ctx.Write("%d,%d:%X\n", i, j, b)
+			}
+		}
+	})
+
+	server.Get("/read", func(ctx *iris.Context) {
+		ctx.SetHeader("Access-Control-Allow-Origin", "*")
+		rfid.StopAutoSearch14443()
+		time.Sleep(time.Second / 5)
 		defer rfid.AutoSearch14443()
 		card := Card{}
 		rfid.Auth14443(1)
@@ -106,28 +127,16 @@ func (s *Server) Run() {
 	})
 
 	server.Get("/write", func(ctx *iris.Context) {
-		// html := `<html>
-		// <body>
-		// <form method="POST" action="/write">
-		// <input type="text" name="name"></input>
-		// <input type="text" name="age"></input>
-		// <input type="text" name="sex"></input>
-		// <input type="text" name="tel"></input>
-		// <input type="submit" ></input>
-		// </form>
-		// </body>
-		// </html>
-		// `
-
-		// html = `<html><head></head><body></body></html>`
-
-		// ctx.RenderTemplateSource(iris.StatusOK, html, nil)
 		ctx.Render("write.html", nil)
+	})
+
+	server.Get("/serialport", func(ctx *iris.Context) {
+		ctx.Render("serialport.html", nil)
 	})
 
 	server.Post("/write", func(ctx *iris.Context) {
 		rfid.StopAutoSearch14443()
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second / 5)
 		defer rfid.AutoSearch14443()
 
 		card := Card{}
@@ -149,20 +158,26 @@ func (s *Server) Run() {
 
 	})
 
+	server.Get("/autosearch", func(ctx *iris.Context) {
+		rfid.AutoSearch14443()
+	})
+
+	server.Get("/stopautosearch", func(ctx *iris.Context) {
+		rfid.StopAutoSearch14443()
+	})
+
 	server.Get("/connect", func(ctx *iris.Context) {
-		html := `<html>
-		<body>
-		<form method="POST" action="/write">
-		<input type="text" name="name"></input>
-		<input type="text" name="age"></input>
-		<input type="text" name="sex"></input>
-		<input type="text" name="tel"></input>
-		<input type="submit" ></input>
-		</form>
-		</body>
-		</html>	
-		`
-		ctx.RenderTemplateSource(iris.StatusOK, html, nil)
+		ctx.SetHeader("Access-Control-Allow-Origin", "*")
+		port := ctx.URLParam("port")
+		log.Println("port", port)
+		err := rfid.Connect(port)
+		if err == nil {
+			// rfid.Auth14443(0)
+			// rfid.Write14443(0, 0, []byte{0x04, 0x14, 0xC1, 0x5A, 0x8B, 0x08, 0x04, 0x00, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69})
+			ctx.Write("Connect successfully")
+		} else {
+			ctx.Write("Error: %s", err.Error())
+		}
 
 	})
 
@@ -170,6 +185,7 @@ func (s *Server) Run() {
 	})
 
 	server.Get("/listdevices", func(ctx *iris.Context) {
+		ctx.SetHeader("Access-Control-Allow-Origin", "*")
 		s := ctx.URLParam("flag")
 		if s == "1" {
 			ctx.JSON(iris.StatusOK, rfid.ListDevice(true))

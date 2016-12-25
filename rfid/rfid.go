@@ -59,14 +59,14 @@ func ListDevice(flag bool) []string {
 	}
 }
 
-func Connect(port string) {
+func Connect(port string) error {
+	if !(strings.Contains(port, "com") || strings.Contains(port, "com") || strings.Contains(port, "/dev")) {
+		port = "/dev/" + port
+	}
 	c := &serial.Config{Name: port, Baud: 115200, ReadTimeout: time.Nanosecond * 1}
 	var err error
 	SerialDevice, err = serial.OpenPort(c)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	return err
 }
 
 func read() []byte {
@@ -132,7 +132,7 @@ func AutoSearch14443() {
 				if buf := SearchCard14443(); SearchCardCallBack != nil {
 					SearchCardCallBack(buf)
 				}
-				time.Sleep(time.Second / 20)
+				time.Sleep(time.Second / 50)
 			} else {
 				return
 			}
