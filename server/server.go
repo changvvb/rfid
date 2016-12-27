@@ -11,7 +11,7 @@ import (
 )
 
 type Card struct {
-	ID   string
+	// ID   string
 	Name string //0 0
 	Age  int    //0 1
 	Sex  int    //0 2  0:woman,1:man
@@ -74,7 +74,7 @@ func (s *Server) Run() {
 	// rfid.Connect("/dev/ttyUSB0")
 	server.UseFunc(func(ctx *iris.Context) {
 
-		if ctx.PathString() == "/listdevices" || ctx.PathString() == "/connect" {
+		if ctx.PathString() == "/listdevices" || ctx.PathString() == "/connect" || ctx.PathString() == "/readpage" {
 			ctx.Next()
 			return
 		}
@@ -86,11 +86,17 @@ func (s *Server) Run() {
 		}
 	})
 
-	server.Get("/readall", func(ctx *iris.Context) {
-		rfid.StopAutoSearch14443()
-		time.Sleep(time.Second / 5)
-		defer rfid.AutoSearch14443()
+	server.Get("/readpage", func(ctx *iris.Context) {
+		ctx.SetHeader("Access-Control-Allow-Origin", "*")
+		ctx.Render("read.html", nil)
+	})
 
+	server.Get("/readall", func(ctx *iris.Context) {
+		if rfid.BoolAutoSearch {
+			rfid.StopAutoSearch14443()
+			time.Sleep(time.Second / 5)
+			defer rfid.AutoSearch14443()
+		}
 		var i, j byte
 		for i = 0; i < 20; i++ {
 			rfid.Auth14443(i)
@@ -103,9 +109,11 @@ func (s *Server) Run() {
 
 	server.Get("/read", func(ctx *iris.Context) {
 		ctx.SetHeader("Access-Control-Allow-Origin", "*")
-		rfid.StopAutoSearch14443()
-		time.Sleep(time.Second / 5)
-		defer rfid.AutoSearch14443()
+		if rfid.BoolAutoSearch {
+			rfid.StopAutoSearch14443()
+			time.Sleep(time.Second / 5)
+			defer rfid.AutoSearch14443()
+		}
 		card := Card{}
 		rfid.Auth14443(1)
 		card.Name = rfid.ReadString14443(1, 0)
@@ -135,9 +143,11 @@ func (s *Server) Run() {
 	})
 
 	server.Post("/write", func(ctx *iris.Context) {
-		rfid.StopAutoSearch14443()
-		time.Sleep(time.Second / 5)
-		defer rfid.AutoSearch14443()
+		if rfid.BoolAutoSearch {
+			rfid.StopAutoSearch14443()
+			time.Sleep(time.Second / 5)
+			defer rfid.AutoSearch14443()
+		}
 
 		card := Card{}
 		card.Name = ctx.FormValueString("name")

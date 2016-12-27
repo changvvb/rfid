@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <script src="/static/jquery.min.js"></script>
+<!--        <script src="jquery.min.js"></script>-->
+        <script>
+            $.getJSON("http://10.42.0.1:8080/read",function(result){
+                var data = "<tr>";
+                $.each(result, function(i, field){
+                    if(i == "Name") {
+                        i = "姓名"
+                    }
+                    else if(i == "Age") {
+                        i = "年龄"
+                    }
+                    else if(i == "Sex") {
+                        i = "性别"
+                    }
+                    else if(i == "Tel") {
+                        i = "联系方式"
+                    }
+                    data = data + "<td>"+i + "</td><td>" + field + "</td>" + "</tr>";
+                });
+                
+                $("#table").html(data)
+              });
+//            $.get("http://10.42.0.1:8080/read", function(data, status) {
+//                JSON.parse(data, function (k, v) {
+//                   // console.log(k)
+//                   // console.log(v)
+//                });                            
+//                console.log(data.toString())
+//            })
+        </script>
+    </head>
+    <body>
+        <table id="table"> 
+        </table>
+        <h1>read page</h1>
+    </body>
+</html>

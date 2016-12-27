@@ -104,7 +104,7 @@ func wait() []byte {
 func SearchCard14443() []byte {
 	cmd := []byte{0xFF, 0xFE, 0x03, 0x00, 0x20, 0x20}
 	SerialDevice.Write(cmd)
-	time.Sleep(time.Second / 5)
+	time.Sleep(time.Second / 3)
 	buf := wait()
 	log.Println("card", buf)
 
