@@ -51,6 +51,7 @@ func (c *Card) WriteToCard() {
 	rfid.Write14443(1, 0, []byte(c.Name))
 	rfid.Write14443(1, 1, []byte(c.Tel))
 	rfid.Write14443(1, 2, []byte{byte(c.Sex), byte(c.Age)})
+
 	// rfid.Auth14443(2)
 	// rfid.Write14443(2, 0, []byte{byte(c.Sex)})
 	// rfid.Write14443(2, 1, []byte(c.Tel))
@@ -74,7 +75,7 @@ func (s *Server) Run() {
 	// rfid.Connect("/dev/ttyUSB0")
 	server.UseFunc(func(ctx *iris.Context) {
 
-		if ctx.PathString() == "/listdevices" || ctx.PathString() == "/connect" || ctx.PathString() == "/readpage" {
+		if ctx.Path() == "/listdevices" || ctx.Path() == "/connect" || ctx.Path() == "/readpage" {
 			ctx.Next()
 			return
 		}
@@ -102,7 +103,7 @@ func (s *Server) Run() {
 			rfid.Auth14443(i)
 			for j = 0; j < 3; j++ {
 				b, _ := rfid.Read14443(i, j)
-				ctx.Write("%d,%d:%X\n", i, j, b)
+				ctx.Writef("%d,%d:%X\n", i, j, b)
 			}
 		}
 	})
@@ -150,19 +151,19 @@ func (s *Server) Run() {
 		}
 
 		card := Card{}
-		card.Name = ctx.FormValueString("name")
-		if age, err := strconv.Atoi(ctx.FormValueString("age")); err != nil {
+		card.Name = ctx.FormValue("name")
+		if age, err := strconv.Atoi(ctx.FormValue("age")); err != nil {
 			return
 		} else {
 			card.Age = age
 		}
 
-		if sex, err := strconv.Atoi(ctx.FormValueString("sex")); err != nil {
+		if sex, err := strconv.Atoi(ctx.FormValue("sex")); err != nil {
 			return
 		} else {
 			card.Sex = sex
 		}
-		card.Tel = ctx.FormValueString("tel")
+		card.Tel = ctx.FormValue("tel")
 		log.Printf("%+v\n", card)
 		card.WriteToCard()
 
@@ -182,11 +183,9 @@ func (s *Server) Run() {
 		log.Println("port", port)
 		err := rfid.Connect(port)
 		if err == nil {
-			// rfid.Auth14443(0)
-			// rfid.Write14443(0, 0, []byte{0x04, 0x14, 0xC1, 0x5A, 0x8B, 0x08, 0x04, 0x00, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69})
-			ctx.Write("Connect successfully")
+			ctx.Writef("Connect successfully")
 		} else {
-			ctx.Write("Error: %s", err.Error())
+			ctx.Writef("Error: %s", err.Error())
 		}
 
 	})
@@ -257,5 +256,5 @@ func (s *Server) Run() {
 }
 
 func printLog(ctx *iris.Context, v ...interface{}) {
-	log.Println(ctx.PathString, v)
+	log.Println(ctx.Path, v)
 }
