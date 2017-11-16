@@ -13,7 +13,7 @@ import (
 )
 
 //串口设备
-var SerialDevice *serial.Port
+var serialDevice *serial.Port
 
 var SearchCardCallBack func([]byte)
 
@@ -21,7 +21,7 @@ var SearchCardCallBack func([]byte)
 func init0() {
 	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 115200, ReadTimeout: time.Nanosecond * 1}
 	var err error
-	SerialDevice, err = serial.OpenPort(c)
+	serialDevice, err = serial.OpenPort(c)
 	log.Println(c.ReadTimeout.Nanoseconds())
 	if err != nil {
 		log.Println(err)
@@ -30,7 +30,7 @@ func init0() {
 }
 
 func BoolReady() bool {
-	if SerialDevice != nil {
+	if serialDevice != nil {
 		return true
 	}
 	return false
@@ -65,7 +65,7 @@ func Connect(port string) error {
 	}
 	c := &serial.Config{Name: port, Baud: 115200, ReadTimeout: time.Nanosecond * 1}
 	var err error
-	SerialDevice, err = serial.OpenPort(c)
+	serialDevice, err = serial.OpenPort(c)
 	return err
 }
 
@@ -73,7 +73,7 @@ func read() []byte {
 	b := make([]byte, 1)
 	buf := make([]byte, 0)
 	for {
-		n, err := SerialDevice.Read(b)
+		n, err := serialDevice.Read(b)
 		if err != nil {
 			// log.Println(err)
 			break
@@ -103,7 +103,7 @@ func wait() []byte {
 //查找14443卡片
 func SearchCard14443() []byte {
 	cmd := []byte{0xFF, 0xFE, 0x03, 0x00, 0x20, 0x20}
-	SerialDevice.Write(cmd)
+	serialDevice.Write(cmd)
 	time.Sleep(time.Second / 3)
 	buf := wait()
 	log.Println("card", buf)
@@ -147,7 +147,7 @@ func StopAutoSearch14443() {
 func Auth14443(section byte) {
 	cmd := []byte{0xFF, 0x0FE, 0x03, 0x08, 0x23, section, 0x60, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00}
 	sum(cmd)
-	SerialDevice.Write(cmd)
+	serialDevice.Write(cmd)
 	time.Sleep(time.Second / 3)
 	buf := wait()
 	log.Printf("Auth cmd. Receive auth data from serial port: %X", buf)
@@ -158,7 +158,7 @@ func Read14443(section byte, block byte) ([]byte, error) {
 	cmd := []byte{0xFF, 0xFE, 0x03, 0x02, 0x21, section, block, 0x00}
 	sum(cmd)
 	log.Printf("cmd:%X\n", cmd)
-	SerialDevice.Write(cmd)
+	serialDevice.Write(cmd)
 	time.Sleep(time.Second / 50)
 	buf := wait()
 	log.Printf("Receive read data from serial port: %X\n", buf)
@@ -207,7 +207,7 @@ func Write14443(section byte, block byte, data []byte) {
 	}
 	sum(cmd)
 	log.Printf("cmd:%X\n", cmd)
-	SerialDevice.Write(cmd)
+	serialDevice.Write(cmd)
 	time.Sleep(time.Second / 50)
 	buf := wait()
 	log.Printf("Receive write data from serial port: %X", buf)
